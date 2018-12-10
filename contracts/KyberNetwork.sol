@@ -8,7 +8,6 @@ import "./Withdrawable.sol";
 import "./Utils2.sol";
 import "./WhiteListInterface.sol";
 import "./ExpectedRateInterface.sol";
-import "./FeeBurnerInterface.sol";
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -20,7 +19,6 @@ contract KyberNetwork is Withdrawable, Utils2, KyberNetworkInterface {
     mapping(address=>bool) public isReserve;
     WhiteListInterface public whiteListContract;
     ExpectedRateInterface public expectedRateContract;
-    FeeBurnerInterface    public feeBurnerContract;
     address               public kyberNetworkProxyContract;
     uint                  public maxGasPriceValue = 50 * 1000 * 1000 * 1000; // 50 gwei
     bool                  public isEnabled = false; // network is enabled
@@ -160,11 +158,6 @@ contract KyberNetwork is Withdrawable, Utils2, KyberNetworkInterface {
         expectedRateContract = expectedRate;
     }
 
-    function setFeeBurner(FeeBurnerInterface feeBurner) public onlyAdmin {
-        require(feeBurner != address(0));
-        feeBurnerContract = feeBurner;
-    }
-
     function setParams(
         uint                  _maxGasPrice,
         uint                  _negligibleRateDiff
@@ -181,7 +174,6 @@ contract KyberNetwork is Withdrawable, Utils2, KyberNetworkInterface {
     function setEnable(bool _enable) public onlyAdmin {
         if (_enable) {
             require(whiteListContract != address(0));
-            require(feeBurnerContract != address(0));
             require(expectedRateContract != address(0));
             require(kyberNetworkProxyContract != address(0));
         }
@@ -424,13 +416,6 @@ contract KyberNetwork is Withdrawable, Utils2, KyberNetworkInterface {
                 KyberReserveInterface(rateResult.reserve2),
                 rateResult.rateEthToDest,
                 true));
-
-        //when src is ether, reserve1 is doing a "fake" trade. (ether to ether) - don't burn.
-        //when dest is ether, reserve2 is doing a "fake" trade. (ether to ether) - don't burn.
-        if (tradeInput.src != ETH_TOKEN_ADDRESS)
-            require(feeBurnerContract.handleFees(weiAmount, rateResult.reserve1, tradeInput.walletId));
-        if (tradeInput.dest != ETH_TOKEN_ADDRESS)
-            require(feeBurnerContract.handleFees(weiAmount, rateResult.reserve2, tradeInput.walletId));
 
         KyberTrade(tradeInput.trader, tradeInput.src, actualSrcAmount, tradeInput.destAddress, tradeInput.dest,
             actualDestAmount);
